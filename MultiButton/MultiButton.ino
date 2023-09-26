@@ -22,6 +22,7 @@ int relayPin = 4;
 
 int startPin = 7;
 int twoMinPin = 8;
+
 int threeMinPin = 9;
 
 
