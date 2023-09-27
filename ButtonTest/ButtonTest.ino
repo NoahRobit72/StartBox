@@ -29,6 +29,12 @@ const unsigned long rollingDebounceDelay = 500; // Debounce time in milliseconds
 unsigned long lastPrepChangeTime = 0; // Last rolling button state change time
 const unsigned long prepDebounceDelay = 500; // Debounce time in milliseconds for rolling button
 
+const char* sampleText = "SETUP";
+
+char* PreviousModeOrTime = "";
+char* PreviousPrepString = "";
+char* PreviousRollString = "";
+char* PreviousSequenceString = "";
 
 
 
@@ -60,7 +66,7 @@ void setup() {
   lcd.init();
   lcd.backlight();
 
-  printTest();
+  printTest(minuteMode, rolling, prep, modeState, stringTime);
 }
 
 void hornPressed() {
@@ -88,15 +94,56 @@ void resetPressed() {
   Serial.println("SETUP MODE");
 }
 
-void printTest(){
-  
-  lcd.clear();                 // clear display
-  lcd.setCursor(8, 0);         // move cursor to   (0, 0)
-  lcd.print("Mode: 2 ");        // print message at (0, 0)
-  lcd.setCursor(0, 1);         // move cursor to   (2, 1)
-  lcd.print("Roll: 0 Prep: 0"); // print message at (2, 1)
+void printTest(int minuteMode, bool rolling, bool prep, int modeState, String timeText){
+   char* modeOrTime = "SETUP";
+   char* prepString = "Prep: 0";
+   char* rollString = "Roll: 0";
+   char* sequenceString = "3 Min";
+  //  char* firstLine = strcat(modeOrTime,sequenceString);
 
-  delay(2000);                 // display the above for two seconds
+
+  if(modeState == 10){modeOrTime = timeText.c_str();}
+  if(rolling){rollString = "Roll: 1";}
+  if(prep){prepString = "Prep: 1";}
+  if(minuteMode == 2){sequenceString = "2 Min";}
+
+  Serial.print("The value of the new and old time is: ");
+  Serial.println((strcmp(PreviousModeOrTime, modeOrTime) != 0));
+  Serial.print("The old value is: ");
+  Serial.println(PreviousModeOrTime);
+  Serial.print("The new value is: ");
+  Serial.println(modeOrTime);
+
+
+
+  // Serial.print(PreviousPrepString != sequenceString);
+  // Serial.print(PreviousRollString != rollString);
+  // Serial.print(PreviousSequenceString != prepString);
+
+
+  Serial.println((strcmp(PreviousModeOrTime, modeOrTime) != 0) || (PreviousPrepString != sequenceString) || (PreviousRollString != rollString) || (PreviousSequenceString != prepString));
+
+
+  if ((strcmp(PreviousModeOrTime, modeOrTime) != 0) || (PreviousPrepString != sequenceString) || (PreviousRollString != rollString) || (PreviousSequenceString != prepString)){
+    lcd.clear();
+    lcd.setCursor(0, 0);         // move cursor to   (0, 0)
+    lcd.print(modeOrTime);        // print message at (0, 0)
+
+    lcd.setCursor(8, 0);         // move cursor to   (0, 0)
+    lcd.print(sequenceString);        // print message at (0, 0)
+
+    lcd.setCursor(0, 1);         // move cursor to   (2, 1)
+    lcd.print(rollString); // print message at (2, 1)
+
+    lcd.setCursor(8, 1);         // move cursor to   (2, 1)
+    lcd.print(prepString); // print message at (2, 1)
+  }
+
+  PreviousModeOrTime = modeOrTime;
+  PreviousPrepString = sequenceString;
+  PreviousRollString = rollString;
+  PreviousSequenceString = prepString;
+  delay(10);                 // display the above for two seconds
 }
 
 void rollingDebounce(){
@@ -120,6 +167,8 @@ void prepDebounce(){
 }
 
 void loop() {
+  returnInfo returnData;
+
   switch (modeState)
   {
   case 0: // mode sele
@@ -159,13 +208,14 @@ void loop() {
   break;
 
   case 10: // sequence countdown
+    
     currentTime = millis();
     bool completedSequence;
 
     switch (minuteMode){
       case 2:
-          completedSequence = twoMinuteStart(prep, rolling, endTime, currentTime);
-          if(completedSequence & rolling){
+          returnData = twoMinuteStart(prep, rolling, endTime, currentTime);
+          if(returnData.completed & rolling){
             startTime = millis();
             endTime = startTime + TWOMIN;
             delay(1000);
@@ -187,7 +237,10 @@ void loop() {
   default:
     break;
   }
+  
+  // Serial.println(returnData.stringTime);
 
+  printTest(minuteMode, rolling, prep, modeState, returnData.stringTime);
 }
 
 

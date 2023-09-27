@@ -1,3 +1,5 @@
+#include "string.h"
+
 #define THREEMIN 180000
 #define TWOMIN 120000
 
@@ -17,8 +19,13 @@
 #define MARGIN 75
 
 
+struct returnInfo{
+  String stringTime;
+  bool completed;
+};
  
-unsigned long timeToStart;
+unsigned long timeToStart = -1;
+String stringTime = "not set";
 const int buzzerPin = 6;
 
 bool prepDone = 0;
@@ -171,36 +178,35 @@ void threeMinuteStart(){
   
 }
 
-bool twoMinuteStart(bool prep, bool rolling, unsigned long endTime, unsigned long currentTime){
+returnInfo twoMinuteStart(bool prep, bool rolling, unsigned long endTime, unsigned long currentTime){
 
-    
-    bool completed = false;
+    returnInfo returnData;
+
+    returnData.completed = false;
     timeToStart = endTime - currentTime;
      // Will print on the screen in the futur
 
-      Serial.println(ReturnTime(timeToStart));
+    returnData.stringTime = ReturnTime(timeToStart);
 
-      
+    if( (timeToStart < (TWOMIN + MARGIN + 50)) & (timeToStart > (TWOMIN - MARGIN - 50)) ){TwoHorn();} // two min start
 
-      if( (timeToStart < (TWOMIN + MARGIN)) & (timeToStart > (TWOMIN - MARGIN)) ){TwoHorn();} // two min start
+    if( (timeToStart < (ONETHIRTY + MARGIN)) & (timeToStart > (ONETHIRTY - MARGIN)) ){OneThirtyHorn();} // one thirty min start
 
-      if( (timeToStart < (ONETHIRTY + MARGIN)) & (timeToStart > (ONETHIRTY - MARGIN)) ){OneThirtyHorn();} // one thirty min start
+    if( (timeToStart < (ONEMIN + MARGIN)) & (timeToStart > (ONEMIN - MARGIN)) ){OneHorn();} // one min start
 
-      if( (timeToStart < (ONEMIN + MARGIN)) & (timeToStart > (ONEMIN - MARGIN)) ){OneHorn();} // one min start
+    if( (timeToStart < (THIRTYSEC + MARGIN)) & (timeToStart > (THIRTYSEC - MARGIN)) ){ThirtyHorn();} // two min start
+    if( (timeToStart < (TWENTYSEC + MARGIN)) & (timeToStart > (TWENTYSEC - MARGIN)) ){TwentyHorn();} // two min start
+    if( (timeToStart < (TENSEC + MARGIN)) & (timeToStart > (TENSEC - MARGIN)) ){TenHorn();} // two min start
 
-      if( (timeToStart < (THIRTYSEC + MARGIN)) & (timeToStart > (THIRTYSEC - MARGIN)) ){ThirtyHorn();} // two min start
-      if( (timeToStart < (TWENTYSEC + MARGIN)) & (timeToStart > (TWENTYSEC - MARGIN)) ){TwentyHorn();} // two min start
-      if( (timeToStart < (TENSEC + MARGIN)) & (timeToStart > (TENSEC - MARGIN)) ){TenHorn();} // two min start
+    if( (timeToStart < (FIVESEC + MARGIN)) & (timeToStart > (FIVESEC - MARGIN)) ){SingleHorn();} // two min start
+    if( (timeToStart < (FOURSEC + MARGIN)) & (timeToStart > (FOURSEC - MARGIN)) ){SingleHorn();} // two min start
+    if( (timeToStart < (THREESEC + MARGIN)) & (timeToStart > (THREESEC - MARGIN)) ){SingleHorn();} // two min start
+    if( (timeToStart < (TWOSEC + MARGIN)) & (timeToStart > (TWOSEC - MARGIN)) ){SingleHorn();} // two min start
+    if( (timeToStart < (ONESEC + MARGIN)) & (timeToStart > (ONESEC - MARGIN)) ){SingleHorn();} // two min start
 
-      if( (timeToStart < (FIVESEC + MARGIN)) & (timeToStart > (FIVESEC - MARGIN)) ){SingleHorn();} // two min start
-      if( (timeToStart < (FOURSEC + MARGIN)) & (timeToStart > (FOURSEC - MARGIN)) ){SingleHorn();} // two min start
-      if( (timeToStart < (THREESEC + MARGIN)) & (timeToStart > (THREESEC - MARGIN)) ){SingleHorn();} // two min start
-      if( (timeToStart < (TWOSEC + MARGIN)) & (timeToStart > (TWOSEC - MARGIN)) ){SingleHorn();} // two min start
-      if( (timeToStart < (ONESEC + MARGIN)) & (timeToStart > (ONESEC - MARGIN)) ){SingleHorn();} // two min start
-
-        if( (timeToStart < (MARGIN))){ // two min start
-          Go();
-          completed = true;
-        }
-  return completed;
+      if( (timeToStart < (MARGIN))){ // two min start
+        Go();
+        returnData.completed = true;
+      }
+  return returnData;
 }
