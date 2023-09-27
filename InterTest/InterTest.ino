@@ -45,7 +45,7 @@ void loop() {
   switch (mode)
   {
   case 1: // Start the time
-
+    Serial.println("hi");
     break;
 
   case 2: // Change Mode

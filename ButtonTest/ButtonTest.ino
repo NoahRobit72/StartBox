@@ -1,23 +1,42 @@
-const int buttonPins[] = {8, 9, 10, 11}; // Pins for 7 buttons
-const int numButtons = 4; // Number of buttons
-const int minuteButtons = 2; // Number of minute options
+#include "TimmerFunctions.h"
+#include <LiquidCrystal_I2C.h>
 
-int hornPinInput = 3;
-int hornPinOutput = 4;
+LiquidCrystal_I2C lcd(0x27, 16, 2); // I2C address 0x27, 16 column and 2 rows
 
-int rollingPinOutput = 5;
+const int buttonPins[] = {8, 9, 10, 11, 12}; // Pins for 7 buttons
+const int numButtons = 5; // Number of buttons
+
+int hornPinInput = 3; // INPUT
+int hornPinOutput = 4; // OUTPUT
+int prepPinOutput = 4; // OUTPUT  - Change in the future with more LEDS
+
+int rollingPinOutput = 5; // OUTPUT
 
 // Which sequence the user wants to pick
 int minuteMode = 2; // 2 is default, other option is 3
-
-// The state of the box
 int modeState = 0; // 0 = sequnce select , 10 = countdown
 
-const int resetPin = 2;  // Pin for the button
+const int resetPin = 2;  // INPUT
+
 volatile bool rolling = false;  // 0 = rolling , 1 = not rolling;
+volatile bool prep = false;  // 0 = no prep , 1 = yes prep;
+
 
 unsigned long lastRollingChangeTime = 0; // Last rolling button state change time
 const unsigned long rollingDebounceDelay = 500; // Debounce time in milliseconds for rolling button
+
+
+unsigned long lastPrepChangeTime = 0; // Last rolling button state change time
+const unsigned long prepDebounceDelay = 500; // Debounce time in milliseconds for rolling button
+
+
+
+
+// Contdown Constants
+unsigned long startTime;
+unsigned long endTime;
+unsigned long currentTime;
+
 
 
 
@@ -30,21 +49,29 @@ void setup() {
   //horn
   pinMode(hornPinInput, INPUT_PULLUP);  // Enable the internal pull-up resistor
   pinMode(hornPinOutput, OUTPUT);
-  attachInterrupt(digitalPinToInterrupt(hornPinInput), hornPressed, CHANGE);
+  pinMode(buzzerPin, OUTPUT);
 
+  attachInterrupt(digitalPinToInterrupt(hornPinInput), hornPressed, CHANGE);
 
   pinMode(resetPin, INPUT_PULLUP);  // Enable the internal pull-up resistor
   attachInterrupt(digitalPinToInterrupt(resetPin), resetPressed, CHANGE);
 
+  // initialize the lcd
+  lcd.init();
+  lcd.backlight();
 
+  printTest();
 }
 
 void hornPressed() {
   // Check if the button is pressed (LOW state)
   if (digitalRead(hornPinInput) == LOW) {
     digitalWrite(hornPinOutput, HIGH);  // Pull the output pin HIGH
+    tone(buzzerPin, 100);
   } else {
     digitalWrite(hornPinOutput, LOW);   // Pull the output pin LOW
+    noTone(buzzerPin);
+
   }
 }
 
@@ -57,6 +84,19 @@ void resetPressed() {
     // Toggle the buttonState variable
     modeState = 0;
   }
+
+  Serial.println("SETUP MODE");
+}
+
+void printTest(){
+  
+  lcd.clear();                 // clear display
+  lcd.setCursor(8, 0);         // move cursor to   (0, 0)
+  lcd.print("Mode: 2 ");        // print message at (0, 0)
+  lcd.setCursor(0, 1);         // move cursor to   (2, 1)
+  lcd.print("Roll: 0 Prep: 0"); // print message at (2, 1)
+
+  delay(2000);                 // display the above for two seconds
 }
 
 void rollingDebounce(){
@@ -69,6 +109,16 @@ void rollingDebounce(){
   }
 }
 
+void prepDebounce(){
+  if (millis() - lastPrepChangeTime >= prepDebounceDelay) {
+    prep = !prep;
+    digitalWrite(prepPinOutput, prep);
+    Serial.print("Prepatory Signnal changed to: ");
+    Serial.println(prep);
+    lastPrepChangeTime = millis();
+  }
+}
+
 void loop() {
   switch (modeState)
   {
@@ -77,22 +127,30 @@ void loop() {
     for (int i = 0; i < numButtons; i++) { // We add one here for the start
         int buttonState = digitalRead(buttonPins[i]);
         if (buttonState == LOW) {
-          if(i == 0){ // this coresponds to input pin 8 and 3 minute button
-              minuteMode = 3;
-          }
-          if(i == 1){ // this coresponds to input pin 9 and 2 minute button
-              minuteMode = 2;
-          }
+          if(i == 0){minuteMode = 3;}
+          if(i == 1){minuteMode = 2;}
           if(i == 2){ // this coresponds to input pin 10 and Start Button
               modeState = 10;
+              if(prep){PrepHorns();}
+              startTime = millis();
+              if(minuteMode == 2){endTime = startTime + TWOMIN;}
+              if(minuteMode == 3){endTime = startTime + THREEMIN;}
+              
           }
-          if(i == 3){ // this coresponds to input pin 11 and rolling putton
+          if(i == 3){ // this coresponds to input pin 11 and rolling button
             rollingDebounce();
             delay(10);
             break;
           }
-          Serial.print("The mode is: ");
-          Serial.println(minuteMode);
+          if(i == 4){ // this coresponds to input pin 12 and prep button
+            prepDebounce();
+            delay(10);
+            break;
+          }
+
+          Serial.print("MODE: ");
+          Serial.print(minuteMode);
+          Serial.println(" minutes");
           } else {
         // code
         }
@@ -101,26 +159,29 @@ void loop() {
   break;
 
   case 10: // sequence countdown
+    currentTime = millis();
+    bool completedSequence;
 
-    // allows you to turn off the rolling while in sequence
-    int buttonState = digitalRead(buttonPins[3]);
-    if(!buttonState){
-      rollingDebounce();
-    }
+    switch (minuteMode){
+      case 2:
+          completedSequence = twoMinuteStart(prep, rolling, endTime, currentTime);
+          if(completedSequence & rolling){
+            startTime = millis();
+            endTime = startTime + TWOMIN;
+            delay(1000);
+          }else if(completedSequence & !rolling){
+            modeState = 0;
+          }
+          break;
+      
+      case 3:
+          threeMinuteStart();
+          break;
+      
+      default:
+          break;
+    } 
 
-    Serial.print("This code will run a sequence for a ");
-    Serial.print(minuteMode);
-    Serial.println(" minute sequence.");
-    Serial.println("//////////");
-    Serial.println("Sequence started");
-    delay(1000);
-    Serial.println("Sequence ended");
-    Serial.println("//////////");
-    if(rolling){
-      modeState = 10;
-    }else{
-      modeState = 0;
-    }
     break;
   
   default:
