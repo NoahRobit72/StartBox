@@ -118,22 +118,6 @@ void printTest(int minuteMode, bool rolling, bool prep, int modeState, String ti
   bool rollChanged = strcmp(rollString,  PreviousRollString);
   bool sequenceChanged = strcmp(sequenceString, PreviousSequenceString);
 
-  Serial.println("////////////////////");
-  Serial.print("Mode: ");
-  Serial.println(modeChanged);
-  Serial.print("Prep: ");
-  Serial.println(prepChanged);
-  Serial.print("Rolling: ");
-  Serial.println(rollChanged);
-  Serial.print("Sequence: ");
-  Serial.println(sequenceChanged);
-
-  Serial.print("The old value for the mode was: ");
-  Serial.print(PreviousModeOrTime);
-  Serial.print(" and the new value is: ");
-  Serial.println(modeOrTime);
-
-
 
   if(modeChanged || prepChanged || rollChanged || sequenceChanged){
     lcd.clear();
@@ -224,7 +208,6 @@ void loop() {
   case 10: // sequence countdown
     
     currentTime = millis();
-    bool completedSequence;
 
     switch (minuteMode){
       case 2:
@@ -233,7 +216,7 @@ void loop() {
             startTime = millis();
             endTime = startTime + TWOMIN;
             delay(1000);
-          }else if(completedSequence & !rolling){
+          }else if(returnData.completed & !rolling){
             modeState = 0;
           }
           break;

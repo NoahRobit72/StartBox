@@ -130,8 +130,6 @@ void Go(){
   tone(buzzerPin,100);
   delay(1300);
   noTone(buzzerPin);
-
-  prepDone = 0;
 }
 
 void PrepHorns(){
@@ -151,8 +149,6 @@ void PrepHorns(){
     noTone(buzzerPin);
     delay(200);
   }
-  Serial.println("prep is done");
-  prepDone = 1;
 }
 
 ////////////////////////
@@ -204,8 +200,9 @@ returnInfo twoMinuteStart(bool prep, bool rolling, unsigned long endTime, unsign
     if( (timeToStart < (TWOSEC + MARGIN)) & (timeToStart > (TWOSEC - MARGIN)) ){SingleHorn();} // two min start
     if( (timeToStart < (ONESEC + MARGIN)) & (timeToStart > (ONESEC - MARGIN)) ){SingleHorn();} // two min start
 
-      if( (timeToStart < (MARGIN))){ // two min start
+      if( (timeToStart < (MARGIN + MARGIN))){ // two min start
         Go();
+
         returnData.completed = true;
       }
   return returnData;
