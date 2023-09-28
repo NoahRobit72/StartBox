@@ -31,10 +31,11 @@ const unsigned long prepDebounceDelay = 500; // Debounce time in milliseconds fo
 
 const char* sampleText = "SETUP";
 
-char* PreviousModeOrTime = "";
-char* PreviousPrepString = "";
-char* PreviousRollString = "";
-char* PreviousSequenceString = "";
+char PreviousModeOrTime[16] = "";  // Assuming a maximum length of 16 characters
+char PreviousPrepString[16] = ""; // Assuming a maximum length of 16 characters
+char PreviousRollString[16] = ""; // Assuming a maximum length of 16 characters
+char PreviousSequenceString[16] = ""; // Assuming a maximum length of 16 characters
+
 
 
 
@@ -94,37 +95,47 @@ void resetPressed() {
   Serial.println("SETUP MODE");
 }
 
-void printTest(int minuteMode, bool rolling, bool prep, int modeState, String timeText){
-   char* modeOrTime = "SETUP";
-   char* prepString = "Prep: 0";
-   char* rollString = "Roll: 0";
-   char* sequenceString = "3 Min";
-  //  char* firstLine = strcat(modeOrTime,sequenceString);
+void printTest(int minuteMode, bool rolling, bool prep, int modeState, String timeText) {
+  char modeOrTime[16] = "SETUP";  // Temporary storage for new value
+  char prepString[16] = "Prep: 0"; // Temporary storage for new value
+  char rollString[16] = "Roll: 0"; // Temporary storage for new value
+  char sequenceString[16] = "3 Min"; // Temporary storage for new value
 
+  if (modeState == 10) {
+    strcpy(modeOrTime, timeText.c_str()); // Copy the new value into the temporary storage
+  }
+  if (prep) {
+    strcpy(prepString, "Prep: 1"); // Copy the new value into the temporary storage
+  }
+  if (rolling) {
+    strcpy(rollString, "Roll: 1"); // Copy the new value into the temporary storage
+  }
+  if (minuteMode == 2) {
+    strcpy(sequenceString, "2 Min"); // Copy the new value into the temporary storage
+  }
+  bool modeChanged = strcmp(modeOrTime, PreviousModeOrTime);
+  bool prepChanged = strcmp(prepString, PreviousPrepString);
+  bool rollChanged = strcmp(rollString,  PreviousRollString);
+  bool sequenceChanged = strcmp(sequenceString, PreviousSequenceString);
 
-  if(modeState == 10){modeOrTime = timeText.c_str();}
-  if(rolling){rollString = "Roll: 1";}
-  if(prep){prepString = "Prep: 1";}
-  if(minuteMode == 2){sequenceString = "2 Min";}
+  Serial.println("////////////////////");
+  Serial.print("Mode: ");
+  Serial.println(modeChanged);
+  Serial.print("Prep: ");
+  Serial.println(prepChanged);
+  Serial.print("Rolling: ");
+  Serial.println(rollChanged);
+  Serial.print("Sequence: ");
+  Serial.println(sequenceChanged);
 
-  Serial.print("The value of the new and old time is: ");
-  Serial.println((strcmp(PreviousModeOrTime, modeOrTime) != 0));
-  Serial.print("The old value is: ");
-  Serial.println(PreviousModeOrTime);
-  Serial.print("The new value is: ");
+  Serial.print("The old value for the mode was: ");
+  Serial.print(PreviousModeOrTime);
+  Serial.print(" and the new value is: ");
   Serial.println(modeOrTime);
 
 
 
-  // Serial.print(PreviousPrepString != sequenceString);
-  // Serial.print(PreviousRollString != rollString);
-  // Serial.print(PreviousSequenceString != prepString);
-
-
-  Serial.println((strcmp(PreviousModeOrTime, modeOrTime) != 0) || (PreviousPrepString != sequenceString) || (PreviousRollString != rollString) || (PreviousSequenceString != prepString));
-
-
-  if ((strcmp(PreviousModeOrTime, modeOrTime) != 0) || (PreviousPrepString != sequenceString) || (PreviousRollString != rollString) || (PreviousSequenceString != prepString)){
+  if(modeChanged || prepChanged || rollChanged || sequenceChanged){
     lcd.clear();
     lcd.setCursor(0, 0);         // move cursor to   (0, 0)
     lcd.print(modeOrTime);        // print message at (0, 0)
@@ -139,12 +150,15 @@ void printTest(int minuteMode, bool rolling, bool prep, int modeState, String ti
     lcd.print(prepString); // print message at (2, 1)
   }
 
-  PreviousModeOrTime = modeOrTime;
-  PreviousPrepString = sequenceString;
-  PreviousRollString = rollString;
-  PreviousSequenceString = prepString;
-  delay(10);                 // display the above for two seconds
+  // Update the previous values with the new values
+  strcpy(PreviousModeOrTime, modeOrTime);
+  strcpy(PreviousPrepString, prepString);
+  strcpy(PreviousRollString, rollString);
+  strcpy(PreviousSequenceString, sequenceString);
+
+  delay(10); // display the above for two seconds
 }
+
 
 void rollingDebounce(){
   if (millis() - lastRollingChangeTime >= rollingDebounceDelay) {
