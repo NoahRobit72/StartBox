@@ -26,10 +26,12 @@ struct returnInfo{
  
 unsigned long timeToStart = -1;
 String stringTime = "not set";
-const int buzzerPin = 6;
 
 bool prepDone = 0;
 int count = 0;
+
+const int hornPinOutput = 4; // OUTPUT
+const int buzzerOutput = 13; // OUTPUT
 
 
 
@@ -37,18 +39,18 @@ int count = 0;
 //    Component Horns   //
 //////////////////////////
 void TenSecHorn(){
-  tone(buzzerPin, 100);  
+  digitalWrite(hornPinOutput, HIGH);  
   delay(500);
 
-  noTone(buzzerPin);  
+  digitalWrite(hornPinOutput, LOW); 
   delay(100);
 }
 
 void MinuteHorn(){
-  tone(buzzerPin, 100);  
+  digitalWrite(hornPinOutput, HIGH); 
   delay(1250);
 
-  noTone(buzzerPin);  
+  digitalWrite(hornPinOutput, LOW);  
   delay(300);
 
 }
@@ -122,31 +124,32 @@ void TenHorn(){
 }
 
 void SingleHorn(){
-  tone(buzzerPin,100);
+  digitalWrite(hornPinOutput, HIGH);
   delay(500);
-  noTone(buzzerPin);}
+  digitalWrite(hornPinOutput, LOW);
+}
 
 void Go(){
-  tone(buzzerPin,100);
+  digitalWrite(hornPinOutput, HIGH);
   delay(1300);
-  noTone(buzzerPin);
+  digitalWrite(hornPinOutput, LOW);
 }
 
 void PrepHorns(){
   Serial.println("running the prep signal");
   for (int i = 0; i < 7; i++) //13 * 400 ms = 
   {
-    tone(buzzerPin,100);
+    digitalWrite(hornPinOutput, HIGH);
     delay(200);
-    noTone(buzzerPin);
+    digitalWrite(hornPinOutput, LOW);
     delay(200);
   }
   delay(5000); // delay 5 seconds
   for (int i = 0; i < 5; i++) //5 * 1000ms
   {
-    tone(buzzerPin,400);
+    tone(buzzerOutput,400);
     delay(800);
-    noTone(buzzerPin);
+    noTone(buzzerOutput);
     delay(200);
   }
 }
@@ -169,13 +172,42 @@ String ReturnTime(unsigned long time){
 /////////////////////////////
 //    Sequence Functions   //
 /////////////////////////////
-void threeMinuteStart(){
 
-  
+returnInfo threeMinuteStart(bool prep, bool rolling, unsigned long endTime, unsigned long currentTime){
+    returnInfo returnData;
+
+    returnData.completed = false;
+    timeToStart = endTime - currentTime;
+     // Will print on the screen in the futur
+
+    returnData.stringTime = ReturnTime(timeToStart);
+
+    if( (timeToStart < (THREEMIN + MARGIN + 50)) & (timeToStart > (THREEMIN - MARGIN - 50)) ){ThreeHorn();} // two min start
+
+    if( (timeToStart < (TWOMIN + MARGIN)) & (timeToStart > (TWOMIN - MARGIN)) ){TwoHorn();} // two min start
+
+    if( (timeToStart < (ONETHIRTY + MARGIN)) & (timeToStart > (ONETHIRTY - MARGIN)) ){OneThirtyHorn();} // one thirty min start
+
+    if( (timeToStart < (ONEMIN + MARGIN)) & (timeToStart > (ONEMIN - MARGIN)) ){OneHorn();} // one min start
+
+    if( (timeToStart < (THIRTYSEC + MARGIN)) & (timeToStart > (THIRTYSEC - MARGIN)) ){ThirtyHorn();} // two min start
+    if( (timeToStart < (TWENTYSEC + MARGIN)) & (timeToStart > (TWENTYSEC - MARGIN)) ){TwentyHorn();} // two min start
+    if( (timeToStart < (TENSEC + MARGIN)) & (timeToStart > (TENSEC - MARGIN)) ){TenHorn();} // two min start
+
+    if( (timeToStart < (FIVESEC + MARGIN)) & (timeToStart > (FIVESEC - MARGIN)) ){SingleHorn();} // two min start
+    if( (timeToStart < (FOURSEC + MARGIN)) & (timeToStart > (FOURSEC - MARGIN)) ){SingleHorn();} // two min start
+    if( (timeToStart < (THREESEC + MARGIN)) & (timeToStart > (THREESEC - MARGIN)) ){SingleHorn();} // two min start
+    if( (timeToStart < (TWOSEC + MARGIN)) & (timeToStart > (TWOSEC - MARGIN)) ){SingleHorn();} // two min start
+    if( (timeToStart < (ONESEC + MARGIN)) & (timeToStart > (ONESEC - MARGIN)) ){SingleHorn();} // two min start
+
+      if( (timeToStart < (MARGIN + MARGIN))){ // two min start
+        Go();
+        returnData.completed = true;
+      }
+  return returnData;
 }
 
 returnInfo twoMinuteStart(bool prep, bool rolling, unsigned long endTime, unsigned long currentTime){
-
     returnInfo returnData;
 
     returnData.completed = false;

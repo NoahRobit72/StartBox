@@ -3,20 +3,28 @@
 
 LiquidCrystal_I2C lcd(0x27, 16, 2); // I2C address 0x27, 16 column and 2 rows
 
+
+// 8  = 3 minute
+// 9  = 2 minute
+// 10 = Start button
+// 11 = Rolling
+// 12 = Prep button
+
 const int buttonPins[] = {8, 9, 10, 11, 12}; // Pins for 7 buttons
+
 const int numButtons = 5; // Number of buttons
 
-int hornPinInput = 3; // INPUT
-int hornPinOutput = 4; // OUTPUT
-int prepPinOutput = 4; // OUTPUT  - Change in the future with more LEDS
+const int resetPin = 2;  // INPUT
+const int hornPinInput = 3; // INPUT
 
-int rollingPinOutput = 5; // OUTPUT
+
+
+
 
 // Which sequence the user wants to pick
 int minuteMode = 2; // 2 is default, other option is 3
 int modeState = 0; // 0 = sequnce select , 10 = countdown
 
-const int resetPin = 2;  // INPUT
 
 volatile bool rolling = false;  // 0 = rolling , 1 = not rolling;
 volatile bool prep = false;  // 0 = no prep , 1 = yes prep;
@@ -56,7 +64,7 @@ void setup() {
   //horn
   pinMode(hornPinInput, INPUT_PULLUP);  // Enable the internal pull-up resistor
   pinMode(hornPinOutput, OUTPUT);
-  pinMode(buzzerPin, OUTPUT);
+  pinMode(buzzerOutput, OUTPUT);
 
   attachInterrupt(digitalPinToInterrupt(hornPinInput), hornPressed, CHANGE);
 
@@ -74,11 +82,8 @@ void hornPressed() {
   // Check if the button is pressed (LOW state)
   if (digitalRead(hornPinInput) == LOW) {
     digitalWrite(hornPinOutput, HIGH);  // Pull the output pin HIGH
-    tone(buzzerPin, 100);
   } else {
     digitalWrite(hornPinOutput, LOW);   // Pull the output pin LOW
-    noTone(buzzerPin);
-
   }
 }
 
@@ -147,7 +152,6 @@ void printTest(int minuteMode, bool rolling, bool prep, int modeState, String ti
 void rollingDebounce(){
   if (millis() - lastRollingChangeTime >= rollingDebounceDelay) {
     rolling = !rolling;
-    digitalWrite(rollingPinOutput, rolling);
     Serial.print("Rolling changed to: ");
     Serial.println(rolling);
     lastRollingChangeTime = millis();
@@ -157,7 +161,6 @@ void rollingDebounce(){
 void prepDebounce(){
   if (millis() - lastPrepChangeTime >= prepDebounceDelay) {
     prep = !prep;
-    digitalWrite(prepPinOutput, prep);
     Serial.print("Prepatory Signnal changed to: ");
     Serial.println(prep);
     lastPrepChangeTime = millis();
@@ -222,9 +225,15 @@ void loop() {
           break;
       
       case 3:
-          threeMinuteStart();
+          returnData = threeMinuteStart(prep, rolling, endTime, currentTime);
+          if(returnData.completed & rolling){
+            startTime = millis();
+            endTime = startTime + THREEMIN;
+            delay(1000);
+          }else if(returnData.completed & !rolling){
+            modeState = 0;
+          }
           break;
-      
       default:
           break;
     } 
