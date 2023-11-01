@@ -170,8 +170,8 @@ void printTest(int minuteMode, bool rolling, bool prep, int modeState, String ti
     lcd.setCursor(0, 1);         // move cursor to   (2, 1)
     lcd.print(rollString); // print message at (2, 1)
 
-    lcd.setCursor(8, 1);         // move cursor to   (2, 1)
-    lcd.print(prepString); // print message at (2, 1)
+    // lcd.setCursor(8, 1);         // move cursor to   (2, 1)
+    // lcd.print(prepString); // print message at (2, 1)
 
   }
 
@@ -221,12 +221,6 @@ void loop() {
       if(!digitalRead(7)){
         secquenceDebounce();
         delay(10);
-      }
-
-      if(!digitalRead(10)){ // this coresponds to input pin 11 and rolling button
-        rollingDebounce();
-        delay(10);
-        break;
       }
 
       if(!digitalRead(9)){ // this coresponds to input pin 10 and Start Button
@@ -299,7 +293,12 @@ void loop() {
   default:
     break;
   }
-    printTest(minuteMode, rolling, prep, modeState, returnData.stringTime);
+  
+  printTest(minuteMode, rolling, prep, modeState, returnData.stringTime);
+  if(!digitalRead(10)){ // this coresponds to input pin 11 and rolling button
+    rollingDebounce();
+    delay(10);
+  }
 }
 
 
