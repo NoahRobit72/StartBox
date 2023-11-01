@@ -1,29 +1,26 @@
 #include "TimmerFunctions.h"
 #include <LiquidCrystal_I2C.h>
+#include "PinChangeInterrupt.h"
+
 
 LiquidCrystal_I2C lcd(0x27, 16, 2); // I2C address 0x27, 16 column and 2 rows
 
+const int SEQUENCE_BUTTON = 7;
+const int START_BUTTON = 9;
+const int ROLLING_BUTTON =  10;
 
-// 8  = 3 minute
-// 9  = 2 minute
-// 10 = Start button
-// 11 = Rolling
-// 12 = Prep button
-
-const int buttonPins[] = {8, 9, 10, 11, 12}; // Pins for 7 buttons
 
 const int numButtons = 5; // Number of buttons
 
-const int resetPin = 2;  // INPUT
-const int hornPinInput = 3; // INPUT
-
-
-
+const int resetPin = 12;  // INPUT // Need to make interupt
+const int hornPinInput = 2; // INPUT
 
 
 // Which sequence the user wants to pick
 int minuteMode = 2; // 2 is default, other option is 3
 int modeState = 0; // 0 = sequnce select , 10 = countdown
+
+int threeInSix = 0;
 
 
 volatile bool rolling = false;  // 0 = rolling , 1 = not rolling;
@@ -33,9 +30,11 @@ volatile bool prep = false;  // 0 = no prep , 1 = yes prep;
 unsigned long lastRollingChangeTime = 0; // Last rolling button state change time
 const unsigned long rollingDebounceDelay = 500; // Debounce time in milliseconds for rolling button
 
-
 unsigned long lastPrepChangeTime = 0; // Last rolling button state change time
 const unsigned long prepDebounceDelay = 500; // Debounce time in milliseconds for rolling button
+
+unsigned long lastSecChangeTime = 0; // Last rolling button state change time
+const unsigned long SecDebounceDelay = 500; // Debounce time in milliseconds for rolling button
 
 const char* sampleText = "SETUP";
 
@@ -57,9 +56,17 @@ unsigned long currentTime;
 
 void setup() {
   Serial.begin(9600); // Initialize serial communication
-  for (int i = 0; i < numButtons; i++) {
-    pinMode(buttonPins[i], INPUT_PULLUP); // Set button pins as inputs with pull-up resistors
-  }
+
+  //SEQUENCE_BUTTON = 7;
+  //START_BUTTON = 9;
+  //ROLLING_BUTTON =  10;
+
+  // INPUT Buttons
+  pinMode(SEQUENCE_BUTTON, INPUT_PULLUP); // Set button pins as inputs with pull-up resistors
+  pinMode(START_BUTTON, INPUT_PULLUP); // Set button pins as inputs with pull-up resistors
+  pinMode(ROLLING_BUTTON, INPUT_PULLUP); // Set button pins as inputs with pull-up resistors
+
+
   
   //horn
   pinMode(hornPinInput, INPUT_PULLUP);  // Enable the internal pull-up resistor
@@ -69,17 +76,22 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(hornPinInput), hornPressed, CHANGE);
 
   pinMode(resetPin, INPUT_PULLUP);  // Enable the internal pull-up resistor
-  attachInterrupt(digitalPinToInterrupt(resetPin), resetPressed, CHANGE);
+  // attachInterrupt(digitalPinToInterrupt(resetPin), resetPressed, CHANGE);
+  
+  attachPinChangeInterrupt(digitalPinToPinChangeInterrupt(resetPin), resetPressed, CHANGE); // interrupt connected to pin 11x  
 
   // initialize the lcd
+  lcd.begin(16,2);
   lcd.init();
   lcd.backlight();
+  lcd.clear();
 
   printTest(minuteMode, rolling, prep, modeState, stringTime);
 }
 
 void hornPressed() {
   // Check if the button is pressed (LOW state)
+  Serial.println("HORN");
   if (digitalRead(hornPinInput) == LOW) {
     digitalWrite(hornPinOutput, HIGH);  // Pull the output pin HIGH
   } else {
@@ -104,7 +116,7 @@ void printTest(int minuteMode, bool rolling, bool prep, int modeState, String ti
   char modeOrTime[16] = "SETUP";  // Temporary storage for new value
   char prepString[16] = "Prep: 0"; // Temporary storage for new value
   char rollString[16] = "Roll: 0"; // Temporary storage for new value
-  char sequenceString[16] = "3 Min"; // Temporary storage for new value
+  char sequenceString[16] = ""; // Temporary storage for new value
 
   if (modeState == 10) {
     strcpy(modeOrTime, timeText.c_str()); // Copy the new value into the temporary storage
@@ -115,9 +127,28 @@ void printTest(int minuteMode, bool rolling, bool prep, int modeState, String ti
   if (rolling) {
     strcpy(rollString, "Roll: 1"); // Copy the new value into the temporary storage
   }
-  if (minuteMode == 2) {
+  switch (minuteMode)
+  {
+  case 0:
     strcpy(sequenceString, "2 Min"); // Copy the new value into the temporary storage
+    break;
+  
+    case 1:
+    strcpy(sequenceString, "3 Min"); // Copy the new value into the temporary storage
+    break;
+  
+    case 2:
+    strcpy(sequenceString, "3 in 6"); // Copy the new value into the temporary storage
+    break;
+
+    case 3:
+    strcpy(sequenceString, "5 Min"); // Copy the new value into the temporary storage
+    break;
+  
+  default:
+    break;
   }
+
   bool modeChanged = strcmp(modeOrTime, PreviousModeOrTime);
   bool prepChanged = strcmp(prepString, PreviousPrepString);
   bool rollChanged = strcmp(rollString,  PreviousRollString);
@@ -125,9 +156,13 @@ void printTest(int minuteMode, bool rolling, bool prep, int modeState, String ti
 
 
   if(modeChanged || prepChanged || rollChanged || sequenceChanged){
+    // debug print
+    Serial.println(sequenceString);
+
     lcd.clear();
     lcd.setCursor(0, 0);         // move cursor to   (0, 0)
     lcd.print(modeOrTime);        // print message at (0, 0)
+    Serial.println(modeOrTime);
 
     lcd.setCursor(8, 0);         // move cursor to   (0, 0)
     lcd.print(sequenceString);        // print message at (0, 0)
@@ -137,6 +172,7 @@ void printTest(int minuteMode, bool rolling, bool prep, int modeState, String ti
 
     lcd.setCursor(8, 1);         // move cursor to   (2, 1)
     lcd.print(prepString); // print message at (2, 1)
+
   }
 
   // Update the previous values with the new values
@@ -158,95 +194,112 @@ void rollingDebounce(){
   }
 }
 
-void prepDebounce(){
-  if (millis() - lastPrepChangeTime >= prepDebounceDelay) {
-    prep = !prep;
-    Serial.print("Prepatory Signnal changed to: ");
-    Serial.println(prep);
-    lastPrepChangeTime = millis();
+void secquenceDebounce(){
+  if (millis() - lastSecChangeTime >= SecDebounceDelay) {
+    minuteMode++;
+    lastSecChangeTime = millis();
+
+    if(minuteMode > 3){
+      minuteMode = 0;
+    }
+
+    Serial.print("Starting sequence mode changed to: ");
+    Serial.println(minuteMode);
   }
 }
 
 void loop() {
   returnInfo returnData;
 
-  switch (modeState)
-  {
-  case 0: // mode sele
-        // Read the state of each button and send a text message
-    for (int i = 0; i < numButtons; i++) { // We add one here for the start
-        int buttonState = digitalRead(buttonPins[i]);
-        if (buttonState == LOW) {
-          if(i == 0){minuteMode = 3;}
-          if(i == 1){minuteMode = 2;}
-          if(i == 2){ // this coresponds to input pin 10 and Start Button
-              modeState = 10;
-              if(prep){PrepHorns();}
+  switch (modeState){
+    case 0: // mode select 
+
+      //SEQUENCE_BUTTON = 7;
+      //START_BUTTON = 9;
+      //ROLLING_BUTTON =  10;   
+
+      if(!digitalRead(7)){
+        secquenceDebounce();
+        delay(10);
+      }
+
+      if(!digitalRead(10)){ // this coresponds to input pin 11 and rolling button
+        rollingDebounce();
+        delay(10);
+        break;
+      }
+
+      if(!digitalRead(9)){ // this coresponds to input pin 10 and Start Button
+        modeState = 10;
+        {PrepHorns();}
+        startTime = millis();
+        if(minuteMode == 0){endTime = startTime + TWOMIN;}
+        if(minuteMode == 1){endTime = startTime + THREEMIN;}  
+        if(minuteMode == 2){endTime = startTime + TWOMIN;}  
+        if(minuteMode == 3){endTime = startTime + FIVEMINUTES;}   
+
+      }
+      break;
+
+    case 10: // sequence countdown
+      currentTime = millis();
+      switch (minuteMode){
+        case 0:
+            returnData = twoMinuteStart(prep, rolling, endTime, currentTime);
+            if(returnData.completed & rolling){
               startTime = millis();
-              if(minuteMode == 2){endTime = startTime + TWOMIN;}
-              if(minuteMode == 3){endTime = startTime + THREEMIN;}
-              
-          }
-          if(i == 3){ // this coresponds to input pin 11 and rolling button
-            rollingDebounce();
-            delay(10);
+              endTime = startTime + TWOMIN;
+              delay(1000);
+            }else if(returnData.completed & !rolling){
+              modeState = 0;
+            }
             break;
-          }
-          if(i == 4){ // this coresponds to input pin 12 and prep button
-            prepDebounce();
-            delay(10);
+        
+        case 1:
+            returnData = threeMinuteStart(prep, rolling, endTime, currentTime);
+            if(returnData.completed & rolling){
+              startTime = millis();
+              endTime = startTime + THREEMIN;
+              delay(1000);
+            }else if(returnData.completed & !rolling){
+              modeState = 0;
+            }
             break;
-          }
 
-          Serial.print("MODE: ");
-          Serial.print(minuteMode);
-          Serial.println(" minutes");
-          } else {
-        // code
-        }
-        delay(10); // Add a small delay to debounce the button (adjust as needed)
-    }
-  break;
+          case 2:
+            returnData = threeInSixStart(prep, rolling, endTime, currentTime);
+            if(returnData.completed){
+              threeInSix++;
+              startTime = millis();
+              endTime = startTime + TWOMIN;
+              delay(1000);
+            }
+            if(threeInSix == 3){
+              modeState = 0;
+              threeInSix = 0;
+            }
+            break;
 
-  case 10: // sequence countdown
-    
-    currentTime = millis();
+          case 3: // five minutes
+            returnData = fiveMinuteStart(prep, rolling, endTime, currentTime);
+            if(returnData.completed & rolling){
+              startTime = millis();
+              endTime = startTime + FIVEMINUTES;
+              delay(1000);
+            }else if(returnData.completed & !rolling){
+              modeState = 0;
+            }
+            break;
 
-    switch (minuteMode){
-      case 2:
-          returnData = twoMinuteStart(prep, rolling, endTime, currentTime);
-          if(returnData.completed & rolling){
-            startTime = millis();
-            endTime = startTime + TWOMIN;
-            delay(1000);
-          }else if(returnData.completed & !rolling){
-            modeState = 0;
-          }
-          break;
-      
-      case 3:
-          returnData = threeMinuteStart(prep, rolling, endTime, currentTime);
-          if(returnData.completed & rolling){
-            startTime = millis();
-            endTime = startTime + THREEMIN;
-            delay(1000);
-          }else if(returnData.completed & !rolling){
-            modeState = 0;
-          }
-          break;
-      default:
-          break;
-    } 
-
+        default:
+            break;
+      } 
     break;
   
   default:
     break;
   }
-  
-  // Serial.println(returnData.stringTime);
-
-  printTest(minuteMode, rolling, prep, modeState, returnData.stringTime);
+    printTest(minuteMode, rolling, prep, modeState, returnData.stringTime);
 }
 
 
