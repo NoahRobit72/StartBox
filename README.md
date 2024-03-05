@@ -4,7 +4,7 @@
 
 The Computerized Starting Horn Box project is a hardware and software solution designed improve the efficiency of starting signals for sailing races. This project aims to improve traditional starting horn boxes with a computerized system that offers several advantages, including ease of use and reliability.
 
-![Alt text](./startbox.png)
+![Alt text](./StartBox.png)
 
 
 ## Features
